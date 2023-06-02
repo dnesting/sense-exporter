@@ -1,0 +1,52 @@
+# Assumes a secret exists like:
+#
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: sense-credentials
+# data:
+#   email: bXktYXBw
+#   password: Mzk1MjgkdmRnN0pi
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: sense-exporter
+  name: sense-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sense-exporter
+  template:
+    metadata:
+      labels:
+        app: sense-exporter
+    spec:
+      containers:
+      - image: dnesting/sense-exporter:latest
+        name: sense-exporter
+        command: 
+          - /sense-exporter
+          - --sense-password-from=/credentials/password
+        ports:
+        - containerPort: 9553
+        volumeMounts:
+        - name: credentials
+          mountPath: /credentials
+          readOnly: true
+        env:
+        - name: SENSE_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: sense-credentials
+              key: email
+        resources:
+          limits:
+            cpu: "0.1"
+            memory: "100M"
+      volumes:
+      - name: credentials
+        secret:
+          secretName: sense-credentials
