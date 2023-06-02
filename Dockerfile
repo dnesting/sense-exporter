@@ -4,9 +4,9 @@ WORKDIR /src
 COPY . .
 
 ARG TARGETOS TARGETARCH
-ARG DATE GIT_COMMIT
+ARG DATE VERSION
 ENV CGO_ENABLED=0
-ENV LDFLAGS="-X=main.BuildDate=$DATE -X=main.GitCommit=$GIT_COMMIT"
+ENV LDFLAGS="-X=main.BuildDate=$DATE -X=main.Version=$VERSION"
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="$LDFLAGS" -o /bin/sense-exporter ./cmd/sense-exporter
 
 # -----

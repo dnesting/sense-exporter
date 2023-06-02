@@ -35,7 +35,7 @@ var (
 
 var (
 	flagVersion        = flag.Bool("version", false, "print version and exit")
-	GitCommit   string = "unset"
+	Version     string = "unset"
 	BuildDate   string = "unset"
 )
 
@@ -45,7 +45,7 @@ var indexContent []byte
 func main() {
 	configFile, creds := sensecli.SetupStandardFlags()
 	flag.Parse()
-	log.Printf("sense-exporter %s built %s\n", GitCommit, BuildDate)
+	log.Printf("sense-exporter %s built %s\n", Version, BuildDate)
 	if *flagVersion {
 		return
 	}
