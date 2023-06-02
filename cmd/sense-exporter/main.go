@@ -34,10 +34,9 @@ var (
 )
 
 var (
-	flagVersion = flag.Bool("version", false, "print version and exit")
-	Version     string
-	ShortCommit string
-	BuildDate   string
+	flagVersion        = flag.Bool("version", false, "print version and exit")
+	GitCommit   string = "unset"
+	BuildDate   string = "unset"
 )
 
 //go:embed index.html
@@ -46,7 +45,7 @@ var indexContent []byte
 func main() {
 	configFile, creds := sensecli.SetupStandardFlags()
 	flag.Parse()
-	log.Printf("sense-exporter %s (%s) built %s\n", Version, ShortCommit, BuildDate)
+	log.Printf("sense-exporter %s built %s\n", GitCommit, BuildDate)
 	if *flagVersion {
 		return
 	}
