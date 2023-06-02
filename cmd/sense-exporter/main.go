@@ -34,9 +34,7 @@ var (
 )
 
 var (
-	flagVersion        = flag.Bool("version", false, "print version and exit")
-	Version     string = "unset"
-	BuildDate   string = "unset"
+	flagVersion = flag.Bool("version", false, "print version and exit")
 )
 
 //go:embed index.html

@@ -18,11 +18,20 @@ ifneq ($(shell git status --porcelain),)
 	VERSION := $(VERSION)-dirty
 endif
 
+all: write-version docker-build docker-push
+
+write-version:
+	@echo "package main" >cmd/sense-exporter/version.go
+	@echo "const (" >>cmd/sense-exporter/version.go
+	@echo "  Version = \"$(VERSION)\"" >>cmd/sense-exporter/version.go
+	@echo "  BuildDate = \"$(DATE)\"" >>cmd/sense-exporter/version.go
+	@echo ")" >>cmd/sense-exporter/version.go
+	@echo "// cmd/sense-exporter/version.go"
+	@cat cmd/sense-exporter/version.go
+
 .PHONY: docker-build
 docker-build:
 	docker buildx build \
-		--build-arg DATE="$(DATE)" \
-		--build-arg VERSION="$(VERSION)" \
 		--push \
 		--platform linux/arm/v7,linux/arm64/v8,linux/amd64 \
 		-t $(DOCKER_IMAGE):$(DOCKER_TAG) \

@@ -4,10 +4,8 @@ WORKDIR /src
 COPY . .
 
 ARG TARGETOS TARGETARCH
-ARG DATE VERSION
 ENV CGO_ENABLED=0
-ENV LDFLAGS="-X=main.BuildDate=$DATE -X=main.Version=$VERSION"
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="$LDFLAGS" -o /bin/sense-exporter ./cmd/sense-exporter
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /bin/sense-exporter ./cmd/sense-exporter
 
 # -----
 
