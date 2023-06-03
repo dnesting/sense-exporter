@@ -18,6 +18,8 @@ github.com/dnesting/sense v0.0.4-0.20230602124553-7a3dd4d49ecf h1:7SIfr7J4Zz3k1r
 github.com/dnesting/sense v0.0.4-0.20230602124553-7a3dd4d49ecf/go.mod h1:kcx9LZOo1Mfhw60zqajDOQTkMHbuHU5NDSDLpD0NE/8=
 github.com/dnesting/sense v0.0.4-0.20230603211527-ec9ee51cc7f8 h1:lwT+SlvIi6CXq9Ar/ECQd9mh46Wr/KpFd2sHW3IH2vA=
 github.com/dnesting/sense v0.0.4-0.20230603211527-ec9ee51cc7f8/go.mod h1:M5nPdQVLlEc8GXmGZfT+2UI+T3Q/4r+71Oewgkcp2UU=
+github.com/dnesting/sense v0.0.4-0.20230603225408-d885e0240c37 h1:xH+JKp7Na95mLfP4JP68JZgHbWMvJDaHUd3Wi+DkJmw=
+github.com/dnesting/sense v0.0.4-0.20230603225408-d885e0240c37/go.mod h1:M5nPdQVLlEc8GXmGZfT+2UI+T3Q/4r+71Oewgkcp2UU=
 github.com/felixge/httpsnoop v1.0.3 h1:s/nj+GCswXYzN5v2DpNMuMQYe+0DDwt5WVCU6CWBdXk=
 github.com/felixge/httpsnoop v1.0.3/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=

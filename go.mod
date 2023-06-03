@@ -3,7 +3,7 @@ module github.com/dnesting/sense-exporter
 go 1.20
 
 require (
-	github.com/dnesting/sense v0.0.4-0.20230603211527-ec9ee51cc7f8
+	github.com/dnesting/sense v0.0.4-0.20230603225408-d885e0240c37
 	github.com/prometheus/client_golang v1.15.1
 )
 
