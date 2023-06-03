@@ -3,12 +3,17 @@ package exporter
 import (
 	"context"
 	"log"
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/dnesting/sense"
 	"github.com/dnesting/sense/realtime"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 /*
@@ -19,11 +24,10 @@ type Client interface {
 }
 */
 
-type Collector struct {
-	Ctx     context.Context
-	Client  *sense.Client
-	Monitor int
-	Timeout time.Duration
+type Exporter struct {
+	clients []*sense.Client
+	timeout time.Duration
+	colls   []prometheus.Collector
 }
 
 var (
@@ -57,7 +61,39 @@ var (
 		[]string{"device_id", "name", "type", "make", "model"}, nil)
 )
 
-func (e *Collector) Describe(ch chan<- *prometheus.Desc) {
+const traceName = "github.com/dnesting/sense-exporter"
+
+func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	reg := prometheus.NewPedanticRegistry()
+
+	var colls []prometheus.Collector
+	for _, cl := range e.clients {
+		for _, m := range cl.Monitors {
+			c := &collector{
+				ctx:     r.Context(),
+				e:       e,
+				cl:      cl,
+				monitor: m.ID,
+			}
+			colls = append(colls, c)
+			rg := prometheus.WrapRegistererWith(
+				prometheus.Labels{"monitor": strconv.Itoa(m.ID)},
+				reg)
+			rg.MustRegister(e.colls...)
+			rg.MustRegister(colls...)
+		}
+	}
+	promhttp.HandlerFor(reg, promhttp.HandlerOpts{}).ServeHTTP(w, r)
+}
+
+type collector struct {
+	ctx     context.Context
+	cl      *sense.Client
+	e       *Exporter
+	monitor int
+}
+
+func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- upDesc
 	ch <- scrapeTimeDesc
 	ch <- deviceWattsDesc
@@ -68,16 +104,16 @@ func (e *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- onlineDesc
 }
 
-func labelsForDevice(d sense.Device) []string {
-	return []string{d.Name, d.Type, d.Make}
-}
-
-func (e *Collector) Collect(ch chan<- prometheus.Metric) {
-	log.Println("collecting from monitor", e.Monitor)
-	ctx := e.Ctx
-	if e.Timeout > 0 {
+func (c *collector) Collect(ch chan<- prometheus.Metric) {
+	log.Println("collecting from monitor", c.monitor)
+	ctx, span := otel.Tracer(traceName).Start(c.ctx, "Collect from Sense Monitor "+strconv.Itoa(c.monitor))
+	defer span.End()
+	span.SetAttributes(attribute.Int("sense-userid", c.cl.UserID))
+	span.SetAttributes(attribute.Int("sense-account", c.cl.AccountID))
+	span.SetAttributes(attribute.Int("sense-monitor", c.monitor))
+	if c.e.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, e.Timeout)
+		ctx, cancel = context.WithTimeout(ctx, c.e.timeout)
 		defer cancel()
 	}
 	start := time.Now()
@@ -91,7 +127,7 @@ func (e *Collector) Collect(ch chan<- prometheus.Metric) {
 
 		scrapeTime := time.Since(start)
 		scrapeSecs := scrapeTime.Seconds()
-		log.Printf("collection for monitor %d completed in %s", e.Monitor, scrapeTime)
+		log.Printf("collection for monitor %d completed in %s", c.monitor, scrapeTime)
 		ch <- prometheus.MustNewConstMetric(
 			scrapeTimeDesc,
 			prometheus.GaugeValue,
@@ -99,9 +135,10 @@ func (e *Collector) Collect(ch chan<- prometheus.Metric) {
 		)
 	}()
 
-	devices, err := e.Client.GetDevices(ctx, e.Monitor, false)
+	devices, err := c.cl.GetDevices(ctx, c.monitor, false)
 	if err != nil {
 		log.Println(err)
+		span.RecordError(err)
 		collectOk = 0
 		return
 	}
@@ -117,9 +154,10 @@ func (e *Collector) Collect(ch chan<- prometheus.Metric) {
 		devInfo:   devInfo,
 		seenWatts: make(map[string]bool),
 	}
-	err = e.Client.Stream(ctx, e.Monitor, cb.callback)
+	err = c.cl.Stream(ctx, c.monitor, cb.callback)
 	if err != nil {
 		log.Println(err)
+		span.RecordError(err)
 		collectOk = 0
 	}
 
@@ -229,23 +267,14 @@ func (e *callbackContainer) callback(ctx context.Context, msg realtime.Message) 
 	return nil
 }
 
-func Register(ctx context.Context, cl *sense.Client, monitor int, timeout time.Duration, reg prometheus.Registerer) *Collector {
-	reg = prometheus.WrapRegistererWith(
-		prometheus.Labels{"monitor": strconv.Itoa(monitor)},
-		reg)
-	col := &Collector{
-		Ctx:     ctx,
-		Client:  cl,
-		Monitor: monitor,
-		Timeout: timeout,
+func NewExporter(clients []*sense.Client, timeout time.Duration) *Exporter {
+	e := &Exporter{
+		clients: clients,
+		timeout: timeout,
+		colls: []prometheus.Collector{
+			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+			collectors.NewGoCollector(),
+		},
 	}
-	reg.MustRegister(col)
-	return col
-}
-
-func RegisterAll(ctx context.Context, cl *sense.Client, timeout time.Duration, reg prometheus.Registerer) error {
-	for _, m := range cl.Monitors {
-		Register(ctx, cl, m.ID, timeout, reg)
-	}
-	return nil
+	return e
 }

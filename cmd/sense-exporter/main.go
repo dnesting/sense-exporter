@@ -12,9 +12,7 @@ import (
 	"github.com/dnesting/sense"
 	exporter "github.com/dnesting/sense-exporter"
 	"github.com/dnesting/sense/sensecli"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
@@ -31,6 +29,7 @@ var (
 	flagAddr    = flag.String("listen", ":9553", "listen address for HTTP server")
 	flagDebug   = flag.Bool("debug", false, "enable debugging")
 	flagTimeout = flag.Duration("timeout", 10*time.Second, "timeout for a collection")
+	flagJaeger  = flag.String("jaeger", "", "jaeger endpoint (e.g. http://localhost:14268/api/traces)")
 )
 
 var (
@@ -49,31 +48,40 @@ func main() {
 	}
 
 	httpClient := http.DefaultClient
+	ctx := context.Background()
+	if *flagJaeger != "" {
+		var cancel func(context.Context)
+		var err error
+		ctx, cancel, err = setupJaeger(ctx, *flagJaeger, "sense-exporter")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer cancel(ctx)
+
+		httpClient = &http.Client{
+			Transport: otelhttp.NewTransport(httpClient.Transport),
+		}
+	}
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
 	if *flagDebug {
 		// enable HTTP client logging
 		httpClient = sense.SetDebug(log.Default(), httpClient)
 	}
 
-	ctx := context.Background()
-	reg := prometheus.NewPedanticRegistry()
-
 	cls, err := sensecli.CreateClients(ctx, configFile, creds, sense.WithHttpClient(httpClient))
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, cl := range cls {
-		log.Printf("successfully authenticated account %d (monitors %v)", cl.AccountID, cl.Monitors)
-		exporter.RegisterAll(ctx, cl, *flagTimeout, reg)
+		if cl.AccountID > 0 {
+			log.Printf("successfully authenticated account %d (monitors %v)", cl.AccountID, cl.Monitors)
+		}
 	}
 
-	// Add the standard process and Go metrics to the custom registry.
-	reg.MustRegister(
-		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-		collectors.NewGoCollector(),
-	)
+	exp := exporter.NewExporter(cls, *flagTimeout)
 
-	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	http.Handle("/metrics", otelhttp.NewHandler(exp, "/metrics"))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(indexContent)
