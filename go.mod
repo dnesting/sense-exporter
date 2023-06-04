@@ -3,14 +3,12 @@ module github.com/dnesting/sense-exporter
 go 1.20
 
 require (
-	github.com/dnesting/sense v0.0.4-0.20230603225408-d885e0240c37
+	github.com/dnesting/sense v0.0.4-0.20230604000652-45ec47207cd9
 	github.com/prometheus/client_golang v1.15.1
+	go.opentelemetry.io/otel/sdk v1.16.0
 )
 
-require (
-	github.com/felixge/httpsnoop v1.0.3 // indirect
-	go.opentelemetry.io/otel/sdk v1.16.0 // indirect
-)
+require github.com/felixge/httpsnoop v1.0.3 // indirect
 
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
@@ -28,7 +26,7 @@ require (
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.42.0
-	go.opentelemetry.io/otel v1.16.0 // indirect
+	go.opentelemetry.io/otel v1.16.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.16.0
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect
 	go.opentelemetry.io/otel/trace v1.16.0 // indirect

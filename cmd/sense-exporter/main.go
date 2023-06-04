@@ -13,6 +13,7 @@ import (
 	exporter "github.com/dnesting/sense-exporter"
 	"github.com/dnesting/sense/sensecli"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -38,6 +39,8 @@ var (
 
 //go:embed index.html
 var indexContent []byte
+
+const traceName = "github.com/dnesting/sense-exporter"
 
 func main() {
 	configFile, creds := sensecli.SetupStandardFlags()
@@ -69,8 +72,10 @@ func main() {
 		httpClient = sense.SetDebug(log.Default(), httpClient)
 	}
 
+	ctx, span := otel.Tracer(traceName).Start(ctx, "Setup")
 	cls, err := sensecli.CreateClients(ctx, configFile, creds, sense.WithHttpClient(httpClient))
 	if err != nil {
+		span.RecordError(err)
 		log.Fatal(err)
 	}
 	for _, cl := range cls {
@@ -87,5 +92,6 @@ func main() {
 		w.Write(indexContent)
 	})
 	log.Println("listening on", *flagAddr)
+	span.End()
 	log.Fatal(http.ListenAndServe(*flagAddr, nil))
 }
