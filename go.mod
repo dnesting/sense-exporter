@@ -3,7 +3,7 @@ module github.com/dnesting/sense-exporter
 go 1.20
 
 require (
-	github.com/dnesting/sense v0.0.4-0.20230604221538-367f532cb562
+	github.com/dnesting/sense v0.0.4
 	github.com/prometheus/client_golang v1.15.1
 	go.opentelemetry.io/otel/sdk v1.16.0
 )
