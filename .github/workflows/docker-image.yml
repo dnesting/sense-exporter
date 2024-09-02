@@ -44,7 +44,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v2
         with:
-          cosign-release: 'v2.0.0'  # Update to the latest stable version
+          cosign-release: 'v2.4.0'  # Update to the latest stable version
 
       - name: Extract Docker metadata
         id: meta
