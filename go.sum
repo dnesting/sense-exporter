@@ -13,8 +13,8 @@ github.com/coder/websocket v1.8.12/go.mod h1:LNVeNrXQZfe5qhS9ALED3uA+l5pPqvwXg3C
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dnesting/sense v0.0.5 h1:8af9aNpquWVgosT81/f29Slq6xLXT3BesqRz2JXv6PY=
-github.com/dnesting/sense v0.0.5/go.mod h1:fE6M2kp9k4MF36RAZofa3EmZjYO+QhpdYLjK22bKQqU=
+github.com/dnesting/sense v0.0.6 h1:hlze+fotJ/YXAeMJ9BT1MXkUfDfUkHFg8ITcb03uXG8=
+github.com/dnesting/sense v0.0.6/go.mod h1:4tG5gUi/sI9dyOphSo5/6V1FtCmE59W/I2OQSECB9WM=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
