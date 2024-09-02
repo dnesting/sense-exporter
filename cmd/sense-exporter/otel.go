@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-func setupJaeger(ctx context.Context, url string, serviceName string) (context.Context, func(context.Context), error) {
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
+func setupTracing(ctx context.Context, url string, serviceName string) (context.Context, func(context.Context), error) {
+	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(url))
 	if err != nil {
 		return ctx, nil, err
 	}

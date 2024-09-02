@@ -55,7 +55,7 @@ func main() {
 	if *flagJaeger != "" {
 		var cancel func(context.Context)
 		var err error
-		ctx, cancel, err = setupJaeger(ctx, *flagJaeger, "sense-exporter")
+		ctx, cancel, err = setupTracing(ctx, *flagJaeger, "sense-exporter")
 		if err != nil {
 			log.Fatal(err)
 		}
