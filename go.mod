@@ -6,7 +6,7 @@ toolchain go1.23.0
 
 require (
 	github.com/dnesting/sense v0.0.6
-	github.com/prometheus/client_golang v1.20.2
+	github.com/prometheus/client_golang v1.20.4
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.29.0
 	go.opentelemetry.io/otel/sdk v1.29.0
 )
