@@ -39,7 +39,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.61.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0
 	go.opentelemetry.io/otel v1.33.0
 	go.opentelemetry.io/otel/metric v1.33.0 // indirect
 	go.opentelemetry.io/otel/trace v1.33.0 // indirect
