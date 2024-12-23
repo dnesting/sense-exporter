@@ -37,8 +37,8 @@ docker-build:
 		-t $(DOCKER_IMAGE):$(DOCKER_TAG) \
 		.
 
-docker-push:
-	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
+#docker-push:
+#	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
 
 test:
 	go test -v ./...
