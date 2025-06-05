@@ -16,16 +16,35 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-/*
+// Client interface abstracts the Sense client functionality
 type Client interface {
 	GetDevices(ctx context.Context, monitor int, includeMerged bool) ([]sense.Device, error)
 	Stream(ctx context.Context, monitor int, callback realtime.Callback) error
-	GetMonitors(ctx context.Context) ([]sense.Monitor, error)
+	// Fields needed for tracing and monitoring
+	GetUserID() int
+	GetAccountID() int
+	GetMonitors() []sense.Monitor
 }
-*/
+
+// senseClientWrapper wraps *sense.Client to implement our Client interface
+type senseClientWrapper struct {
+	*sense.Client
+}
+
+func (w *senseClientWrapper) GetUserID() int {
+	return w.Client.UserID
+}
+
+func (w *senseClientWrapper) GetAccountID() int {
+	return w.Client.AccountID
+}
+
+func (w *senseClientWrapper) GetMonitors() []sense.Monitor {
+	return w.Client.Monitors
+}
 
 type Exporter struct {
-	clients []*sense.Client
+	clients []Client
 	timeout time.Duration
 	colls   []prometheus.Collector
 }
@@ -68,13 +87,8 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var colls []prometheus.Collector
 	for _, cl := range e.clients {
-		for _, m := range cl.Monitors {
-			c := &collector{
-				ctx:     r.Context(),
-				e:       e,
-				cl:      cl,
-				monitor: m.ID,
-			}
+		for _, m := range cl.GetMonitors() {
+			c := NewCollectorWithTimeout(r.Context(), cl, m.ID, e.timeout)
 			colls = append(colls, c)
 			rg := prometheus.WrapRegistererWith(
 				prometheus.Labels{"monitor": strconv.Itoa(m.ID)},
@@ -86,14 +100,14 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	promhttp.HandlerFor(reg, promhttp.HandlerOpts{}).ServeHTTP(w, r)
 }
 
-type collector struct {
+type Collector struct {
 	ctx     context.Context
-	cl      *sense.Client
-	e       *Exporter
+	cl      Client
+	timeout time.Duration
 	monitor int
 }
 
-func (c *collector) Describe(ch chan<- *prometheus.Desc) {
+func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- upDesc
 	ch <- scrapeTimeDesc
 	ch <- deviceWattsDesc
@@ -104,16 +118,16 @@ func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- onlineDesc
 }
 
-func (c *collector) Collect(ch chan<- prometheus.Metric) {
+func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	log.Println("collecting from monitor", c.monitor)
 	ctx, span := otel.Tracer(traceName).Start(c.ctx, "Collect from Sense Monitor "+strconv.Itoa(c.monitor))
 	defer span.End()
-	span.SetAttributes(attribute.Int("sense-userid", c.cl.UserID))
-	span.SetAttributes(attribute.Int("sense-account", c.cl.AccountID))
+	span.SetAttributes(attribute.Int("sense-userid", c.cl.GetUserID()))
+	span.SetAttributes(attribute.Int("sense-account", c.cl.GetAccountID()))
 	span.SetAttributes(attribute.Int("sense-monitor", c.monitor))
-	if c.e.timeout > 0 {
+	if c.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.e.timeout)
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
 	start := time.Now()
@@ -267,9 +281,35 @@ func (e *callbackContainer) callback(ctx context.Context, msg realtime.Message) 
 	return nil
 }
 
+// NewCollector creates a new Collector for the specified client and monitor
+func NewCollector(ctx context.Context, client Client, monitor int) *Collector {
+	return &Collector{
+		ctx:     ctx,
+		cl:      client,
+		timeout: 0, // Default timeout, can be set later
+		monitor: monitor,
+	}
+}
+
+// NewCollectorWithTimeout creates a new Collector with a specific timeout
+func NewCollectorWithTimeout(ctx context.Context, client Client, monitor int, timeout time.Duration) *Collector {
+	return &Collector{
+		ctx:     ctx,
+		cl:      client,
+		timeout: timeout,
+		monitor: monitor,
+	}
+}
+
 func NewExporter(clients []*sense.Client, timeout time.Duration) *Exporter {
+	// Convert sense.Client to our Client interface
+	wrappedClients := make([]Client, len(clients))
+	for i, cl := range clients {
+		wrappedClients[i] = &senseClientWrapper{Client: cl}
+	}
+	
 	e := &Exporter{
-		clients: clients,
+		clients: wrappedClients,
 		timeout: timeout,
 		colls: []prometheus.Collector{
 			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
