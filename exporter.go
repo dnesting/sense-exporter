@@ -61,7 +61,7 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var colls []prometheus.Collector
 	for _, cl := range e.clients {
 		for _, m := range cl.Monitors {
-			c := NewCollectorWithTimeout(r.Context(), cl, m.ID, e.timeout)
+			c := NewCollector(r.Context(), cl, m.ID, e.timeout)
 			colls = append(colls, c)
 			rg := prometheus.WrapRegistererWith(
 				prometheus.Labels{"monitor": strconv.Itoa(m.ID)},
@@ -254,18 +254,8 @@ func (e *callbackContainer) callback(ctx context.Context, msg realtime.Message) 
 	return nil
 }
 
-// NewCollector creates a new Collector for the specified client and monitor
-func NewCollector(ctx context.Context, client *sense.Client, monitor int) *Collector {
-	return &Collector{
-		ctx:     ctx,
-		cl:      client,
-		timeout: 0, // Default timeout, can be set later
-		monitor: monitor,
-	}
-}
-
-// NewCollectorWithTimeout creates a new Collector with a specific timeout
-func NewCollectorWithTimeout(ctx context.Context, client *sense.Client, monitor int, timeout time.Duration) *Collector {
+// NewCollector creates a new Collector for the specified client and monitor with a timeout
+func NewCollector(ctx context.Context, client *sense.Client, monitor int, timeout time.Duration) *Collector {
 	return &Collector{
 		ctx:     ctx,
 		cl:      client,
