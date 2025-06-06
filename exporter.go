@@ -68,7 +68,7 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var colls []prometheus.Collector
 	for _, cl := range e.clients {
-		for _, m := range cl.Monitors {
+		for _, m := range cl.GetMonitors() {
 			c := &collector{
 				ctx:     r.Context(),
 				e:       e,
@@ -108,8 +108,8 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	log.Println("collecting from monitor", c.monitor)
 	ctx, span := otel.Tracer(traceName).Start(c.ctx, "Collect from Sense Monitor "+strconv.Itoa(c.monitor))
 	defer span.End()
-	span.SetAttributes(attribute.Int("sense-userid", c.cl.UserID))
-	span.SetAttributes(attribute.Int("sense-account", c.cl.AccountID))
+	span.SetAttributes(attribute.Int("sense-userid", c.cl.GetUserID()))
+	span.SetAttributes(attribute.Int("sense-account", c.cl.GetAccountID()))
 	span.SetAttributes(attribute.Int("sense-monitor", c.monitor))
 	if c.e.timeout > 0 {
 		var cancel context.CancelFunc
