@@ -16,8 +16,34 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// Client interface abstracts the Sense client functionality to facilitate testing
+type Client interface {
+	GetDevices(ctx context.Context, monitor int, includeMerged bool) ([]sense.Device, error)
+	Stream(ctx context.Context, monitor int, callback realtime.Callback) error
+	GetUserID() int
+	GetAccountID() int
+	GetMonitors() []sense.Monitor
+}
+
+// senseClientAdapter adapts *sense.Client to implement our Client interface
+type senseClientAdapter struct {
+	*sense.Client
+}
+
+func (a *senseClientAdapter) GetUserID() int {
+	return a.Client.UserID
+}
+
+func (a *senseClientAdapter) GetAccountID() int {
+	return a.Client.AccountID
+}
+
+func (a *senseClientAdapter) GetMonitors() []sense.Monitor {
+	return a.Client.Monitors
+}
+
 type Exporter struct {
-	clients []*sense.Client
+	clients []Client
 	timeout time.Duration
 	colls   []prometheus.Collector
 }
@@ -60,7 +86,7 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var colls []prometheus.Collector
 	for _, cl := range e.clients {
-		for _, m := range cl.Monitors {
+		for _, m := range cl.GetMonitors() {
 			c := NewCollector(r.Context(), cl, m.ID, e.timeout)
 			colls = append(colls, c)
 			rg := prometheus.WrapRegistererWith(
@@ -75,7 +101,7 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 type Collector struct {
 	ctx     context.Context
-	cl      *sense.Client
+	cl      Client
 	timeout time.Duration
 	monitor int
 }
@@ -95,8 +121,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	log.Println("collecting from monitor", c.monitor)
 	ctx, span := otel.Tracer(traceName).Start(c.ctx, "Collect from Sense Monitor "+strconv.Itoa(c.monitor))
 	defer span.End()
-	span.SetAttributes(attribute.Int("sense-userid", c.cl.UserID))
-	span.SetAttributes(attribute.Int("sense-account", c.cl.AccountID))
+	span.SetAttributes(attribute.Int("sense-userid", c.cl.GetUserID()))
+	span.SetAttributes(attribute.Int("sense-account", c.cl.GetAccountID()))
 	span.SetAttributes(attribute.Int("sense-monitor", c.monitor))
 	if c.timeout > 0 {
 		var cancel context.CancelFunc
@@ -255,7 +281,7 @@ func (e *callbackContainer) callback(ctx context.Context, msg realtime.Message) 
 }
 
 // NewCollector creates a new Collector for the specified client and monitor with a timeout
-func NewCollector(ctx context.Context, client *sense.Client, monitor int, timeout time.Duration) *Collector {
+func NewCollector(ctx context.Context, client Client, monitor int, timeout time.Duration) *Collector {
 	return &Collector{
 		ctx:     ctx,
 		cl:      client,
@@ -265,8 +291,14 @@ func NewCollector(ctx context.Context, client *sense.Client, monitor int, timeou
 }
 
 func NewExporter(clients []*sense.Client, timeout time.Duration) *Exporter {
+	// Convert sense.Client to our Client interface
+	adaptedClients := make([]Client, len(clients))
+	for i, cl := range clients {
+		adaptedClients[i] = &senseClientAdapter{Client: cl}
+	}
+	
 	e := &Exporter{
-		clients: clients,
+		clients: adaptedClients,
 		timeout: timeout,
 		colls: []prometheus.Collector{
 			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
