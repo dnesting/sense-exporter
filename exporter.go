@@ -25,8 +25,6 @@ type Client interface {
 	GetMonitors() []sense.Monitor
 }
 
-
-
 type Exporter struct {
 	clients []Client
 	timeout time.Duration
