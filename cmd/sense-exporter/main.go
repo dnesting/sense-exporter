@@ -79,8 +79,8 @@ func main() {
 		log.Fatal(err)
 	}
 	for _, cl := range cls {
-		if cl.AccountID > 0 {
-			log.Printf("successfully authenticated account %d (monitors %v)", cl.AccountID, cl.Monitors)
+		if cl.GetAccountID() > 0 {
+			log.Printf("successfully authenticated account %d (monitors %v)", cl.GetAccountID(), cl.GetMonitors())
 		}
 	}
 

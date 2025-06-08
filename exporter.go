@@ -25,22 +25,7 @@ type Client interface {
 	GetMonitors() []sense.Monitor
 }
 
-// senseClientAdapter adapts *sense.Client to implement our Client interface
-type senseClientAdapter struct {
-	*sense.Client
-}
 
-func (a *senseClientAdapter) GetUserID() int {
-	return a.Client.UserID
-}
-
-func (a *senseClientAdapter) GetAccountID() int {
-	return a.Client.AccountID
-}
-
-func (a *senseClientAdapter) GetMonitors() []sense.Monitor {
-	return a.Client.Monitors
-}
 
 type Exporter struct {
 	clients []Client
@@ -291,10 +276,10 @@ func NewCollector(ctx context.Context, client Client, monitor int, timeout time.
 }
 
 func NewExporter(clients []*sense.Client, timeout time.Duration) *Exporter {
-	// Convert sense.Client to our Client interface
+	// Convert to Client interface for internal use
 	adaptedClients := make([]Client, len(clients))
 	for i, cl := range clients {
-		adaptedClients[i] = &senseClientAdapter{Client: cl}
+		adaptedClients[i] = cl
 	}
 	
 	e := &Exporter{
