@@ -205,14 +205,7 @@ func verifyMetricValue(t *testing.T, metrics map[string][]*dto.Metric, metricNam
 	}
 }
 
-// getExpectedWatts returns the expected watts map for the test devices
-func getExpectedWatts() map[string]float64 {
-	return map[string]float64{
-		"light1":  25.5,
-		"fridge1": 150.0,
-		"washer1": 0.0,
-	}
-}
+
 
 // extractDeviceWattsByID extracts device watts metrics and returns a map of deviceID -> watts
 func extractDeviceWattsByID(t *testing.T, deviceWattsMetrics []*dto.Metric) map[string]float64 {
@@ -426,7 +419,11 @@ func TestCollectorWithDevices(t *testing.T) {
 		deviceWattsByID := extractDeviceWattsByID(t, deviceWattsMetrics)
 
 		// Verify values match expected
-		expectedWatts := getExpectedWatts()
+		expectedWatts := map[string]float64{
+			"light1":  25.5,
+			"fridge1": 150.0,
+			"washer1": 0.0,
+		}
 
 		for deviceID, expectedWatt := range expectedWatts {
 			if actualWatt, exists := deviceWattsByID[deviceID]; !exists {
