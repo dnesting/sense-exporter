@@ -17,7 +17,7 @@ import (
 // mockDevice represents a device for easy test configuration
 type mockDevice struct {
 	ID     string
-	Name   string  
+	Name   string
 	Type   string
 	Make   string
 	Model  string
@@ -34,7 +34,7 @@ type mockClient struct {
 	devices    []mockDevice
 	devicesErr error
 	streamErr  error
-	
+
 	// Monitor-level data
 	totalWatts float32
 	hz         float32
@@ -53,7 +53,7 @@ func (m *mockClient) GetDevices(ctx context.Context, monitor int, includeMerged 
 	if m.devicesErr != nil {
 		return nil, m.devicesErr
 	}
-	
+
 	var devices []sense.Device
 	for _, d := range m.devices {
 		devices = append(devices, sense.Device{
@@ -135,23 +135,23 @@ func (m *mockClient) GetMonitors() []sense.Monitor {
 // Helper function to collect metrics from a collector
 func collectMetrics(t *testing.T, collector *exporter.Collector) map[string][]*dto.Metric {
 	ch := make(chan prometheus.Metric, 100)
-	
+
 	go func() {
 		collector.Collect(ch)
 		close(ch)
 	}()
 
 	metricsByName := make(map[string][]*dto.Metric)
-	
+
 	for metric := range ch {
 		dto := &dto.Metric{}
 		if err := metric.Write(dto); err != nil {
 			t.Fatalf("Failed to write metric: %v", err)
 		}
-		
+
 		desc := metric.Desc()
 		descStr := desc.String()
-		
+
 		var metricName string
 		if strings.Contains(descStr, `fqName: "sense_monitor_up"`) {
 			metricName = "sense_monitor_up"
@@ -168,10 +168,10 @@ func collectMetrics(t *testing.T, collector *exporter.Collector) map[string][]*d
 		} else {
 			continue // Skip other metrics
 		}
-		
+
 		metricsByName[metricName] = append(metricsByName[metricName], dto)
 	}
-	
+
 	return metricsByName
 }
 
@@ -191,12 +191,12 @@ func verifyMetricValue(t *testing.T, metrics map[string][]*dto.Metric, metricNam
 		t.Errorf("Expected metric %s not found", metricName)
 		return
 	}
-	
+
 	if len(metricList) > 1 {
 		t.Errorf("Expected exactly one %s metric, got %d", metricName, len(metricList))
 		return
 	}
-	
+
 	actualValue := metricList[0].GetGauge().GetValue()
 	// Use a tolerance for floating point comparison to handle float32->float64 conversion
 	const tolerance = 1e-5
@@ -212,6 +212,27 @@ func getExpectedWatts() map[string]float64 {
 		"fridge1": 150.0,
 		"washer1": 0.0,
 	}
+}
+
+// extractDeviceWattsByID extracts device watts metrics and returns a map of deviceID -> watts
+func extractDeviceWattsByID(t *testing.T, deviceWattsMetrics []*dto.Metric) map[string]float64 {
+	deviceWattsByID := make(map[string]float64)
+	for _, metric := range deviceWattsMetrics {
+		// Find device_id label
+		var deviceID string
+		for _, label := range metric.GetLabel() {
+			if label.GetName() == "device_id" {
+				deviceID = label.GetValue()
+				break
+			}
+		}
+		if deviceID == "" {
+			t.Error("Device watts metric missing device_id label")
+			continue
+		}
+		deviceWattsByID[deviceID] = metric.GetGauge().GetValue()
+	}
+	return deviceWattsByID
 }
 
 func TestCollectorDescribe(t *testing.T) {
@@ -251,23 +272,23 @@ func TestCollectorServiceDown(t *testing.T) {
 		accountID:  456,
 		devicesErr: errors.New("service unavailable"),
 	}
-	
+
 	collector := exporter.NewCollector(context.Background(), client, 789, time.Second)
 	metrics := collectMetrics(t, collector)
-	
+
 	// Verify 'up' is 0
 	verifyMetricValue(t, metrics, "sense_monitor_up", 0.0)
-	
+
 	// Verify scrape_time_seconds exists (always present)
 	if _, exists := metrics["sense_scrape_time_seconds"]; !exists {
 		t.Error("Expected sense_scrape_time_seconds metric to be present")
 	}
-	
+
 	// Verify other main metrics are missing
 	// TODO: These might be zero-valued rather than missing, which could be a bug
 	verifyMetricsMissing(t, metrics, []string{
 		"sense_monitor_watts",
-		"sense_monitor_hz", 
+		"sense_monitor_hz",
 		"sense_monitor_volts",
 		"sense_device_watts",
 	})
@@ -283,18 +304,18 @@ func TestCollectorStreamError(t *testing.T) {
 		},
 		streamErr: errors.New("monitor not found"),
 	}
-	
+
 	collector := exporter.NewCollector(context.Background(), client, 789, time.Second)
 	metrics := collectMetrics(t, collector)
-	
+
 	// Verify 'up' is 0
 	verifyMetricValue(t, metrics, "sense_monitor_up", 0.0)
-	
+
 	// Verify scrape_time_seconds exists
 	if _, exists := metrics["sense_scrape_time_seconds"]; !exists {
 		t.Error("Expected sense_scrape_time_seconds metric to be present")
 	}
-	
+
 	// Should have device_watts with 0 value for devices that didn't get real values
 	if deviceMetrics, exists := metrics["sense_device_watts"]; exists {
 		if len(deviceMetrics) > 0 {
@@ -302,7 +323,7 @@ func TestCollectorStreamError(t *testing.T) {
 			verifyMetricValue(t, metrics, "sense_device_watts", 0.0)
 		}
 	}
-	
+
 	// Other monitor metrics should be missing
 	// TODO: These might be zero-valued rather than missing, which could be a bug
 	verifyMetricsMissing(t, metrics, []string{
@@ -322,22 +343,22 @@ func TestCollectorZeroUsage(t *testing.T) {
 		hz:         60.0,
 		voltages:   []float32{120.0, 119.5},
 	}
-	
+
 	collector := exporter.NewCollector(context.Background(), client, 789, time.Second)
 	metrics := collectMetrics(t, collector)
-	
+
 	// Verify 'up' is 1
 	verifyMetricValue(t, metrics, "sense_monitor_up", 1.0)
-	
+
 	// Verify scrape_time_seconds exists
 	if _, exists := metrics["sense_scrape_time_seconds"]; !exists {
 		t.Error("Expected sense_scrape_time_seconds metric to be present")
 	}
-	
+
 	// Verify monitor metrics exist and report appropriate values
 	verifyMetricValue(t, metrics, "sense_monitor_watts", 0.0)
 	verifyMetricValue(t, metrics, "sense_monitor_hz", 60.0)
-	
+
 	// Should have voltage metrics for each channel
 	voltageMetrics, exists := metrics["sense_monitor_volts"]
 	if !exists {
@@ -345,7 +366,7 @@ func TestCollectorZeroUsage(t *testing.T) {
 	} else if len(voltageMetrics) != 2 {
 		t.Errorf("Expected 2 voltage metrics, got %d", len(voltageMetrics))
 	}
-	
+
 	// No device metrics since no devices
 	if _, exists := metrics["sense_device_watts"]; exists {
 		t.Error("Expected no sense_device_watts metrics since no devices")
@@ -359,7 +380,7 @@ func TestCollectorWithDevices(t *testing.T) {
 		{ID: "fridge1", Name: "Kitchen Fridge", Type: "Refrigerator", Make: "Samsung", Model: "RF28", Watts: 150.0, Active: true, Online: true},
 		{ID: "washer1", Name: "Washing Machine", Type: "Washer", Make: "LG", Model: "WM3500", Watts: 0, Active: false, Online: false},
 	}
-	
+
 	client := &mockClient{
 		userID:     123,
 		accountID:  456,
@@ -368,22 +389,22 @@ func TestCollectorWithDevices(t *testing.T) {
 		hz:         59.8,
 		voltages:   []float32{121.2, 120.8},
 	}
-	
+
 	collector := exporter.NewCollector(context.Background(), client, 789, time.Second)
 	metrics := collectMetrics(t, collector)
-	
+
 	// Verify 'up' is 1
 	verifyMetricValue(t, metrics, "sense_monitor_up", 1.0)
-	
+
 	// Verify scrape_time_seconds exists
 	if _, exists := metrics["sense_scrape_time_seconds"]; !exists {
 		t.Error("Expected sense_scrape_time_seconds metric to be present")
 	}
-	
+
 	// Verify monitor-level metrics
 	verifyMetricValue(t, metrics, "sense_monitor_watts", 175.5)
 	verifyMetricValue(t, metrics, "sense_monitor_hz", 59.8)
-	
+
 	// Verify voltage metrics for each channel
 	voltageMetrics, exists := metrics["sense_monitor_volts"]
 	if !exists {
@@ -391,7 +412,7 @@ func TestCollectorWithDevices(t *testing.T) {
 	} else if len(voltageMetrics) != 2 {
 		t.Errorf("Expected 2 voltage metrics, got %d", len(voltageMetrics))
 	}
-	
+
 	// Verify device watts metrics - should have one for each device
 	deviceWattsMetrics, exists := metrics["sense_device_watts"]
 	if !exists {
@@ -400,28 +421,13 @@ func TestCollectorWithDevices(t *testing.T) {
 		if len(deviceWattsMetrics) != len(devices) {
 			t.Errorf("Expected %d device watts metrics, got %d", len(devices), len(deviceWattsMetrics))
 		}
-		
+
 		// Verify each device has correct wattage and labels
-		deviceWattsByID := make(map[string]float64)
-		for _, metric := range deviceWattsMetrics {
-			// Find device_id label
-			var deviceID string
-			for _, label := range metric.GetLabel() {
-				if label.GetName() == "device_id" {
-					deviceID = label.GetValue()
-					break
-				}
-			}
-			if deviceID == "" {
-				t.Error("Device watts metric missing device_id label")
-				continue
-			}
-			deviceWattsByID[deviceID] = metric.GetGauge().GetValue()
-		}
-		
+		deviceWattsByID := extractDeviceWattsByID(t, deviceWattsMetrics)
+
 		// Verify values match expected
 		expectedWatts := getExpectedWatts()
-		
+
 		for deviceID, expectedWatt := range expectedWatts {
 			if actualWatt, exists := deviceWattsByID[deviceID]; !exists {
 				t.Errorf("Expected device %s watts metric not found", deviceID)
