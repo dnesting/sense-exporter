@@ -84,7 +84,13 @@ func main() {
 		}
 	}
 
-	exp := exporter.NewExporter(cls, *flagTimeout)
+	// Convert sense.Client to exporter.Client interface
+	clients := make([]exporter.Client, len(cls))
+	for i, cl := range cls {
+		clients[i] = cl
+	}
+
+	exp := exporter.NewExporter(clients, *flagTimeout)
 
 	http.Handle("/metrics", otelhttp.NewHandler(exp, "/metrics"))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

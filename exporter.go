@@ -16,16 +16,17 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-/*
+// Client interface abstracts the sense.Client functionality
 type Client interface {
+	GetUserID() int
+	GetAccountID() int
 	GetDevices(ctx context.Context, monitor int, includeMerged bool) ([]sense.Device, error)
 	Stream(ctx context.Context, monitor int, callback realtime.Callback) error
-	GetMonitors(ctx context.Context) ([]sense.Monitor, error)
+	GetMonitors() []sense.Monitor
 }
-*/
 
 type Exporter struct {
-	clients []*sense.Client
+	clients []Client
 	timeout time.Duration
 	colls   []prometheus.Collector
 }
@@ -69,12 +70,7 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var colls []prometheus.Collector
 	for _, cl := range e.clients {
 		for _, m := range cl.GetMonitors() {
-			c := &collector{
-				ctx:     r.Context(),
-				e:       e,
-				cl:      cl,
-				monitor: m.ID,
-			}
+			c := NewCollector(r.Context(), cl, m.ID, e.timeout)
 			colls = append(colls, c)
 			rg := prometheus.WrapRegistererWith(
 				prometheus.Labels{"monitor": strconv.Itoa(m.ID)},
@@ -86,14 +82,25 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	promhttp.HandlerFor(reg, promhttp.HandlerOpts{}).ServeHTTP(w, r)
 }
 
-type collector struct {
+// Collector handles metrics collection for a specific monitor
+type Collector struct {
 	ctx     context.Context
-	cl      *sense.Client
-	e       *Exporter
+	cl      Client
+	timeout time.Duration
 	monitor int
 }
 
-func (c *collector) Describe(ch chan<- *prometheus.Desc) {
+// NewCollector creates a new Collector for the specified monitor
+func NewCollector(ctx context.Context, client Client, monitorID int, timeout time.Duration) *Collector {
+	return &Collector{
+		ctx:     ctx,
+		cl:      client,
+		timeout: timeout,
+		monitor: monitorID,
+	}
+}
+
+func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- upDesc
 	ch <- scrapeTimeDesc
 	ch <- deviceWattsDesc
@@ -104,16 +111,16 @@ func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- onlineDesc
 }
 
-func (c *collector) Collect(ch chan<- prometheus.Metric) {
+func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	log.Println("collecting from monitor", c.monitor)
 	ctx, span := otel.Tracer(traceName).Start(c.ctx, "Collect from Sense Monitor "+strconv.Itoa(c.monitor))
 	defer span.End()
 	span.SetAttributes(attribute.Int("sense-userid", c.cl.GetUserID()))
 	span.SetAttributes(attribute.Int("sense-account", c.cl.GetAccountID()))
 	span.SetAttributes(attribute.Int("sense-monitor", c.monitor))
-	if c.e.timeout > 0 {
+	if c.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.e.timeout)
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
 	start := time.Now()
@@ -267,7 +274,7 @@ func (e *callbackContainer) callback(ctx context.Context, msg realtime.Message) 
 	return nil
 }
 
-func NewExporter(clients []*sense.Client, timeout time.Duration) *Exporter {
+func NewExporter(clients []Client, timeout time.Duration) *Exporter {
 	e := &Exporter{
 		clients: clients,
 		timeout: timeout,
