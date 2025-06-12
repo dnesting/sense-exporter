@@ -168,18 +168,21 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		collectOk = 0
 	}
 
-	for _, d := range devices {
-		if !cb.seenWatts[d.ID] {
-			ch <- prometheus.MustNewConstMetric(
-				deviceWattsDesc,
-				prometheus.GaugeValue,
-				0,
-				d.ID,
-				devInfo[d.ID].Name,
-				devInfo[d.ID].Type,
-				devInfo[d.ID].Make,
-				devInfo[d.ID].Model,
-			)
+	// Only emit device metrics if streaming was successful
+	if collectOk == 1.0 {
+		for _, d := range devices {
+			if !cb.seenWatts[d.ID] {
+				ch <- prometheus.MustNewConstMetric(
+					deviceWattsDesc,
+					prometheus.GaugeValue,
+					0,
+					d.ID,
+					devInfo[d.ID].Name,
+					devInfo[d.ID].Type,
+					devInfo[d.ID].Make,
+					devInfo[d.ID].Model,
+				)
+			}
 		}
 	}
 }
