@@ -309,16 +309,12 @@ func TestCollectorStreamError(t *testing.T) {
 		t.Error("Expected sense_scrape_time_seconds metric to be present")
 	}
 
-	// Should have device_watts with 0 value for devices that didn't get real values
-	if deviceMetrics, exists := metrics["sense_device_watts"]; exists {
-		if len(deviceMetrics) > 0 {
-			// Should be 0 for devices that didn't stream successfully
-			verifyMetricValue(t, metrics, "sense_device_watts", 0.0)
-		}
-	}
+	// Device metrics should be missing when streaming fails
+	verifyMetricsMissing(t, metrics, []string{
+		"sense_device_watts",
+	})
 
 	// Other monitor metrics should be missing
-	// TODO: These might be zero-valued rather than missing, which could be a bug
 	verifyMetricsMissing(t, metrics, []string{
 		"sense_monitor_watts",
 		"sense_monitor_hz",
