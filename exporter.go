@@ -157,33 +157,14 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	cb := &callbackContainer{
-		ch:        ch,
-		devInfo:   devInfo,
-		seenWatts: make(map[string]bool),
+		ch:      ch,
+		devInfo: devInfo,
 	}
 	err = c.cl.Stream(ctx, c.monitor, cb.callback)
 	if err != nil {
 		log.Println(err)
 		span.RecordError(err)
 		collectOk = 0
-	}
-
-	// Only emit device metrics if streaming was successful
-	if collectOk == 1.0 {
-		for _, d := range devices {
-			if !cb.seenWatts[d.ID] {
-				ch <- prometheus.MustNewConstMetric(
-					deviceWattsDesc,
-					prometheus.GaugeValue,
-					0,
-					d.ID,
-					devInfo[d.ID].Name,
-					devInfo[d.ID].Type,
-					devInfo[d.ID].Make,
-					devInfo[d.ID].Model,
-				)
-			}
-		}
 	}
 }
 
@@ -192,7 +173,6 @@ type callbackContainer struct {
 	gotStates   bool
 	ch          chan<- prometheus.Metric
 	devInfo     map[string]sense.Device
-	seenWatts   map[string]bool
 }
 
 func (e *callbackContainer) callback(ctx context.Context, msg realtime.Message) error {
@@ -213,7 +193,6 @@ func (e *callbackContainer) callback(ctx context.Context, msg realtime.Message) 
 				e.devInfo[d.ID].Make,
 				e.devInfo[d.ID].Model,
 			)
-			e.seenWatts[d.ID] = true
 		}
 		for channel, v := range msg.Voltage {
 			e.ch <- prometheus.MustNewConstMetric(
