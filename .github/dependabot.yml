@@ -1,15 +1,47 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Dependabot configuration for sense-exporter
+# 
+# This configuration follows small project best practices by grouping related 
+# dependencies together to minimize PR noise while maintaining manageable reviews.
+#
+# For more granular grouping, you can replace the single "all-go-dependencies" 
+# group with multiple groups like:
+# - observability: go.opentelemetry.io/*, github.com/prometheus/*
+# - go-stdlib: golang.org/x/*
+# - google-apis: google.golang.org/*, github.com/grpc-ecosystem/*
+#
+# See: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
-  - package-ecosystem: "gomod" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # Go module dependencies - group all together for minimal PR noise
+  - package-ecosystem: "gomod"
+    directory: "/"
     schedule:
       interval: "weekly"
     groups:
-      k8s:
+      # Single group for all Go dependencies (small project best practice)
+      # This prevents the multiple separate PRs mentioned in the issue,
+      # especially for go.opentelemetry.io packages that are often updated together
+      all-go-dependencies:
         patterns:
-          - "k8s.io/*"
+          - "*"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Docker dependencies (base images from Dockerfile)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      docker-images:
+        patterns:
+          - "*"
